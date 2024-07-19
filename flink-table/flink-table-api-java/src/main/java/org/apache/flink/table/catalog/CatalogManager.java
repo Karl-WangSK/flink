@@ -22,6 +22,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.connector.jdbc.catalog.JdbcCatalog;
 import org.apache.flink.table.api.CatalogNotExistException;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.Schema;
@@ -945,6 +946,9 @@ public final class CatalogManager implements CatalogRegistry, AutoCloseable {
             CatalogBaseTable table, ObjectIdentifier objectIdentifier, boolean ignoreIfExists) {
         execute(
                 (catalog, path) -> {
+                    if (catalog instanceof JdbcCatalog){
+                        return;
+                    }
                     ResolvedCatalogBaseTable<?> resolvedTable = resolveCatalogBaseTable(table);
                     ResolvedCatalogBaseTable<?> resolvedListenedTable =
                             managedTableListener.notifyTableCreation(

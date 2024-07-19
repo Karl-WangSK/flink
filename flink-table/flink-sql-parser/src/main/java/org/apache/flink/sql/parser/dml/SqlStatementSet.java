@@ -18,6 +18,8 @@
 
 package org.apache.flink.sql.parser.dml;
 
+import org.apache.flink.sql.parser.dql.SqlCreateTableAsTable;
+
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
@@ -43,15 +45,18 @@ public class SqlStatementSet extends SqlCall {
     public static final SqlSpecialOperator OPERATOR =
             new SqlSpecialOperator("Statement Set", SqlKind.OTHER);
 
-    private final ArrayList<RichSqlInsert> inserts = new ArrayList<>();
+    private final ArrayList<SqlNode> statements = new ArrayList<>();
 
-    public SqlStatementSet(List<RichSqlInsert> inserts, SqlParserPos pos) {
+    private final boolean isInsert;
+
+    public SqlStatementSet(List<SqlNode> statements, SqlParserPos pos) {
         super(pos);
-        this.inserts.addAll(inserts);
+        isInsert = statements.get(0) instanceof RichSqlInsert;
+        this.statements.addAll(statements);
     }
 
-    public List<RichSqlInsert> getInserts() {
-        return inserts;
+    public List<SqlNode> getStatement() {
+        return statements;
     }
 
     @Nonnull
@@ -63,31 +68,52 @@ public class SqlStatementSet extends SqlCall {
     @Nonnull
     @Override
     public List<SqlNode> getOperandList() {
-        return new ArrayList<>(inserts);
+        return new ArrayList<>(statements);
     }
 
     @Override
     public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword("STATEMENT SET BEGIN");
         writer.newlineAndIndent();
-        inserts.forEach(
-                insert -> {
-                    insert.unparse(
-                            writer,
-                            insert.getOperator().getLeftPrec(),
-                            insert.getOperator().getRightPrec());
-                    writer.sep(";");
-                    writer.newlineAndIndent();
-                });
+        if (isInsert) {
+            statements.forEach(
+                    sqlNode -> {
+                        RichSqlInsert insert = (RichSqlInsert) sqlNode;
+                        insert.unparse(
+                                writer,
+                                insert.getOperator().getLeftPrec(),
+                                insert.getOperator().getRightPrec());
+                        writer.sep(";");
+                        writer.newlineAndIndent();
+                    });
+        } else {
+            statements.forEach(
+                    sqlNode -> {
+                        SqlCreateTableAsTable createTableAsTable = (SqlCreateTableAsTable) sqlNode;
+                        createTableAsTable.unparse(
+                                writer,
+                                createTableAsTable.getOperator().getLeftPrec(),
+                                createTableAsTable.getOperator().getRightPrec());
+                        writer.sep(";");
+                        writer.newlineAndIndent();
+                    });
+        }
         writer.keyword("END");
     }
 
     @Override
     public void setOperand(int i, SqlNode operand) {
-        if (!(operand instanceof RichSqlInsert)) {
+        if (isInsert && !(operand instanceof RichSqlInsert)) {
             throw new UnsupportedOperationException(
                     "SqlStatementSet SqlNode only support RichSqlInsert as operand");
+        } else if (!isInsert && !(operand instanceof SqlCreateTableAsTable)) {
+            throw new UnsupportedOperationException(
+                    "SqlStatementSet SqlNode only support SqlCreateTableAsTable as operand");
         }
-        inserts.set(i, (RichSqlInsert) operand);
+        if (isInsert) {
+            statements.set(i, (RichSqlInsert) operand);
+        } else {
+            statements.set(i, (SqlCreateTableAsTable) operand);
+        }
     }
 }

@@ -38,6 +38,16 @@ under the License.
 	<dependencies>
 		<dependency>
 			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-sql-connector-mysql-cdc</artifactId>
+			<version>3.2.0-taimei</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-connector-jdbc</artifactId>
+			<version>3.2.0-1.18</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-table-common</artifactId>
 			<version>${project.version}</version>
 		</dependency>

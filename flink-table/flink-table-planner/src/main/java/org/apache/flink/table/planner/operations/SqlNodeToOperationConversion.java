@@ -60,6 +60,7 @@ import org.apache.flink.sql.parser.dml.SqlEndStatementSet;
 import org.apache.flink.sql.parser.dml.SqlExecute;
 import org.apache.flink.sql.parser.dml.SqlExecutePlan;
 import org.apache.flink.sql.parser.dml.SqlStatementSet;
+import org.apache.flink.sql.parser.dql.SqlCreateTableAsTable;
 import org.apache.flink.sql.parser.dql.SqlLoadModule;
 import org.apache.flink.sql.parser.dql.SqlRichDescribeTable;
 import org.apache.flink.sql.parser.dql.SqlRichExplain;
@@ -312,6 +313,9 @@ public class SqlNodeToOperationConversion {
                 return Optional.of(
                         converter.createTableConverter.convertCreateTableAS(
                                 flinkPlanner, (SqlCreateTableAs) validated));
+            } else if (validated instanceof SqlCreateTableAsTable){
+                return Optional.of(
+                        converter.createTableConverter.convertCreateTableAsTable(flinkPlanner, (SqlCreateTableAsTable) validated));
             }
             return Optional.of(
                     converter.createTableConverter.convertCreateTable((SqlCreateTable) validated));
@@ -719,11 +723,24 @@ public class SqlNodeToOperationConversion {
 
     /** Convert statement set into statement. */
     private StatementSetOperation convertSqlStatementSet(SqlStatementSet statementSet) {
-        return new StatementSetOperation(
-                statementSet.getInserts().stream()
-                        .map(this::convertSqlInsert)
-                        .map(op -> (ModifyOperation) op)
-                        .collect(Collectors.toList()));
+        SqlNode sqlNode = statementSet.getStatement().get(0);
+        List<ModifyOperation> collect;
+        if (sqlNode instanceof RichSqlInsert){
+            collect = statementSet.getStatement().stream()
+                    .map(sqlnode -> (RichSqlInsert) sqlNode)
+                    .map(this::convertSqlInsert)
+                    .map(op -> (ModifyOperation) op)
+                    .collect(Collectors.toList());
+        } else {
+            collect = statementSet.getStatement().stream()
+                    .map(sqlnode -> (SqlCreateTableAsTable) sqlNode)
+                    .map(sqlCreateTableAsTable -> this.createTableConverter.convertCreateTableAsTable(
+                            flinkPlanner,
+                            sqlCreateTableAsTable))
+                    .map(op -> (ModifyOperation) op)
+                    .collect(Collectors.toList());
+        }
+        return new StatementSetOperation(collect);
     }
 
     /** Convert insert into statement. */

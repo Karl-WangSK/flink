@@ -1313,6 +1313,7 @@ SqlCreate SqlCreateTable(Span s, boolean replace, boolean isTemporary) :
     final SqlParserPos startPos = s.pos();
     boolean ifNotExists = false;
     SqlIdentifier tableName;
+    SqlIdentifier sourceTableName;
     List<SqlTableConstraint> constraints = new ArrayList<SqlTableConstraint>();
     SqlWatermark watermark = null;
     SqlNodeList columnList = SqlNodeList.EMPTY;
@@ -1321,6 +1322,7 @@ SqlCreate SqlCreateTable(Span s, boolean replace, boolean isTemporary) :
     SqlNode asQuery = null;
 
     SqlNodeList propertyList = SqlNodeList.EMPTY;
+    SqlNodeList sourcePropertyList = SqlNodeList.EMPTY;
     SqlNodeList partitionColumns = SqlNodeList.EMPTY;
     SqlParserPos pos = startPos;
 }
@@ -1374,35 +1376,59 @@ SqlCreate SqlCreateTable(Span s, boolean replace, boolean isTemporary) :
         }
     |
         <AS>
-        asQuery = OrderedQueryOrExpr(ExprContext.ACCEPT_QUERY)
-        {
+        [
+            <TABLE>
+            sourceTableName = CompoundIdentifier()
+            [
+                <OPTIONS>
+                sourcePropertyList = TableProperties()
+            ]
+            {
+            return new SqlCreateTableAsTable(startPos.plus(getPos()),
+            tableName,
+            columnList,
+            constraints,
+            propertyList,
+            partitionColumns,
+            watermark,
+            comment,
+            sourceTableName,
+            sourcePropertyList,
+            isTemporary,
+            ifNotExists);
+            }
+
+        |
+             asQuery = OrderedQueryOrExpr(ExprContext.ACCEPT_QUERY)
+            {
             if (replace) {
                 return new SqlReplaceTableAs(startPos.plus(getPos()),
-                    tableName,
-                    columnList,
-                    constraints,
-                    propertyList,
-                    partitionColumns,
-                    watermark,
-                    comment,
-                    asQuery,
-                    isTemporary,
-                    ifNotExists,
-                    true);
-            } else {
+                tableName,
+                columnList,
+                constraints,
+                propertyList,
+                partitionColumns,
+                watermark,
+                comment,
+                asQuery,
+                isTemporary,
+                ifNotExists,
+                true);
+                } else {
                 return new SqlCreateTableAs(startPos.plus(getPos()),
-                    tableName,
-                    columnList,
-                    constraints,
-                    propertyList,
-                    partitionColumns,
-                    watermark,
-                    comment,
-                    asQuery,
-                    isTemporary,
-                    ifNotExists);
+                tableName,
+                columnList,
+                constraints,
+                propertyList,
+                partitionColumns,
+                watermark,
+                comment,
+                asQuery,
+                isTemporary,
+                ifNotExists);
+                }
             }
-        }
+        ]
     ]
     {
         return new SqlCreateTable(startPos.plus(getPos()),
@@ -2256,21 +2282,39 @@ SqlEndStatementSet SqlEndStatementSet() :
 SqlNode SqlStatementSet() :
 {
     SqlParserPos startPos;
-    SqlNode insert;
-    List<RichSqlInsert> inserts = new ArrayList<RichSqlInsert>();
+    SqlNode statement;
+    List<SqlNode> statements = new ArrayList<SqlNode>();
 }
 {
     <STATEMENT>{ startPos = getPos(); } <SET> <BEGIN>
     (
-        insert = RichSqlInsert()
+        statement = SqlStatement()
         <SEMICOLON>
         {
-            inserts.add((RichSqlInsert) insert);
+            statements.add(statement);
         }
     )+
     <END>
     {
-        return new SqlStatementSet(inserts, startPos);
+        return new SqlStatementSet(statements, startPos);
+    }
+}
+
+/**
+* Parse either a create statement or an insert statement.
+*/
+SqlNode SqlStatement() :
+{
+    SqlNode stmt;
+}
+{
+    (
+        stmt = RichSqlInsert()
+        |
+        stmt = SqlCreate()
+    )
+    {
+        return stmt;
     }
 }
 

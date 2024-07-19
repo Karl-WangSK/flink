@@ -170,7 +170,7 @@ class FlinkPlannerImpl(
           richExplain.setOperand(0, validatedStatement)
           richExplain
         case statementSet: SqlStatementSet =>
-          statementSet.getInserts.asScala.zipWithIndex.foreach {
+          statementSet.getStatement.asScala.zipWithIndex.foreach {
             case (insert, idx) => statementSet.setOperand(idx, validate(insert))
           }
           statementSet

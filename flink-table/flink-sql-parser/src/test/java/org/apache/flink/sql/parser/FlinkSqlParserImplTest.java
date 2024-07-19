@@ -1586,6 +1586,13 @@ class FlinkSqlParserImplTest extends SqlParserTest {
     }
 
     @Test
+    void testCreateTableAsWithoutOption() {
+        final String sql = "create table source_table\n " + "AS TABLE parent_table";
+        final String expected = "CREATE TABLE `SOURCE_TABLE`\n" + "AS TABLE `PARENT_TABLE`";
+        sql(sql).ok(expected);
+    }
+
+    @Test
     void testCreateTableLikeWithConstraints() {
         final String sql1 =
                 "create table source_table(\n"
