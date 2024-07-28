@@ -36,6 +36,7 @@ import org.apache.flink.table.planner.plan.nodes.logical.FlinkLogicalMinus;
 import org.apache.flink.table.planner.plan.nodes.logical.FlinkLogicalOverAggregate;
 import org.apache.flink.table.planner.plan.nodes.logical.FlinkLogicalRank;
 import org.apache.flink.table.planner.plan.nodes.logical.FlinkLogicalScriptTransform;
+import org.apache.flink.table.planner.plan.nodes.logical.FlinkLogicalSelfGen;
 import org.apache.flink.table.planner.plan.nodes.logical.FlinkLogicalSink;
 import org.apache.flink.table.planner.plan.nodes.logical.FlinkLogicalSnapshot;
 import org.apache.flink.table.planner.plan.nodes.logical.FlinkLogicalSort;
@@ -166,6 +167,8 @@ public final class RelTimeIndicatorConverter extends RelHomogeneousShuttle {
             return visitSink((FlinkLogicalSink) node);
         } else if (node instanceof FlinkLogicalLegacySink) {
             return visitSink((FlinkLogicalLegacySink) node);
+        } else if (node instanceof FlinkLogicalSelfGen) {
+            return visitSelfGen((FlinkLogicalSelfGen) node);
         } else {
             return visitInvalidRel(node);
         }
@@ -378,6 +381,10 @@ public final class RelTimeIndicatorConverter extends RelHomogeneousShuttle {
         RelNode newInput = sink.getInput().accept(this);
         newInput = materializeProcTime(newInput);
         return sink.copy(sink.getTraitSet(), Collections.singletonList(newInput));
+    }
+
+    private RelNode visitSelfGen(FlinkLogicalSelfGen sink) {
+        return sink;
     }
 
     private FlinkLogicalAggregate visitAggregate(FlinkLogicalAggregate agg) {

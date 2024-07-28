@@ -28,10 +28,14 @@ import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.core.execution.JobStatusHook;
+import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.graph.StreamGraph;
+import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.api.TableException;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.delegation.Executor;
+import org.apache.flink.types.Row;
 import org.apache.flink.util.StringUtils;
 
 import javax.annotation.Nullable;
@@ -58,6 +62,15 @@ public class DefaultExecutor implements Executor {
     @Override
     public ReadableConfig getConfiguration() {
         return executionEnvironment.getConfiguration();
+    }
+
+    @Override
+    public void createView(Transformation transformation, TableEnvironment tEnv) {
+        StreamTableEnvironment env = (StreamTableEnvironment) tEnv;
+        DataStream<Row> newStream = new DataStream<>(executionEnvironment, transformation);
+        String viewName = "VIEW_" + transformation.getName().replaceAll("\\.", "_");
+
+        env.createTemporaryView(viewName, env.fromChangelogStream(newStream));
     }
 
     @Override

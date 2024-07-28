@@ -30,8 +30,10 @@ import org.apache.flink.table.planner.plan.utils.{ChangelogPlanUtils, UpsertKeyU
 import org.apache.flink.table.planner.utils.ShortcutUtils.unwrapTableConfig
 
 import org.apache.calcite.plan.{RelOptCluster, RelTraitSet}
+import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.{RelNode, RelWriter}
 import org.apache.calcite.rel.hint.RelHint
+import org.apache.calcite.sql.`type`.SqlTypeName
 
 import java.util
 

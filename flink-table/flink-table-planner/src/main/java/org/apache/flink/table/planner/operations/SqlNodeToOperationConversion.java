@@ -60,7 +60,6 @@ import org.apache.flink.sql.parser.dml.SqlEndStatementSet;
 import org.apache.flink.sql.parser.dml.SqlExecute;
 import org.apache.flink.sql.parser.dml.SqlExecutePlan;
 import org.apache.flink.sql.parser.dml.SqlStatementSet;
-import org.apache.flink.sql.parser.dql.SqlCreateTableAsTable;
 import org.apache.flink.sql.parser.dql.SqlLoadModule;
 import org.apache.flink.sql.parser.dql.SqlRichDescribeTable;
 import org.apache.flink.sql.parser.dql.SqlRichExplain;
@@ -313,10 +312,13 @@ public class SqlNodeToOperationConversion {
                 return Optional.of(
                         converter.createTableConverter.convertCreateTableAS(
                                 flinkPlanner, (SqlCreateTableAs) validated));
-            } else if (validated instanceof SqlCreateTableAsTable){
-                return Optional.of(
-                        converter.createTableConverter.convertCreateTableAsTable(flinkPlanner, (SqlCreateTableAsTable) validated));
             }
+            //            else if (validated instanceof SqlCreateTableAsTable){
+            //                return Optional.of(
+            //
+            // converter.createTableConverter.convertCreateTableAsTable(flinkPlanner,
+            // (SqlCreateTableAsTable) validated));
+            //            }
             return Optional.of(
                     converter.createTableConverter.convertCreateTable((SqlCreateTable) validated));
         } else if (validated instanceof SqlDropTable) {
@@ -722,23 +724,18 @@ public class SqlNodeToOperationConversion {
     }
 
     /** Convert statement set into statement. */
-    private StatementSetOperation convertSqlStatementSet(SqlStatementSet statementSet) {
+    private Operation convertSqlStatementSet(SqlStatementSet statementSet) {
         SqlNode sqlNode = statementSet.getStatement().get(0);
         List<ModifyOperation> collect;
-        if (sqlNode instanceof RichSqlInsert){
-            collect = statementSet.getStatement().stream()
-                    .map(sqlnode -> (RichSqlInsert) sqlNode)
-                    .map(this::convertSqlInsert)
-                    .map(op -> (ModifyOperation) op)
-                    .collect(Collectors.toList());
+        if (sqlNode instanceof RichSqlInsert) {
+            collect =
+                    statementSet.getStatement().stream()
+                            .map(sqlnode -> (RichSqlInsert) sqlNode)
+                            .map(this::convertSqlInsert)
+                            .map(op -> (ModifyOperation) op)
+                            .collect(Collectors.toList());
         } else {
-            collect = statementSet.getStatement().stream()
-                    .map(sqlnode -> (SqlCreateTableAsTable) sqlNode)
-                    .map(sqlCreateTableAsTable -> this.createTableConverter.convertCreateTableAsTable(
-                            flinkPlanner,
-                            sqlCreateTableAsTable))
-                    .map(op -> (ModifyOperation) op)
-                    .collect(Collectors.toList());
+            return this.createTableConverter.convertCreateTableAsTable(statementSet.getStatement());
         }
         return new StatementSetOperation(collect);
     }
@@ -756,6 +753,13 @@ public class SqlNodeToOperationConversion {
         UnresolvedIdentifier unresolvedIdentifier = UnresolvedIdentifier.of(targetTablePath);
         ObjectIdentifier identifier = catalogManager.qualifyIdentifier(unresolvedIdentifier);
         ContextResolvedTable contextResolvedTable = catalogManager.getTableOrError(identifier);
+        String url = contextResolvedTable.getResolvedTable().getOptions().get("url");
+        if (url.contains("jdbc:postgresql://")) {
+            contextResolvedTable
+                    .getResolvedTable()
+                    .getOptions()
+                    .put("url", url + "?reWriteBatchedInserts=true");
+        }
 
         PlannerQueryOperation query =
                 (PlannerQueryOperation)

@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.flink.table.catalog;
 
 import org.apache.flink.connector.jdbc.catalog.AbstractJdbcCatalog;
@@ -64,7 +81,13 @@ public class MySqlCdcCatalog extends AbstractJdbcCatalog {
             String pwd,
             String ip,
             String port) {
-        super(userClassLoader, catalogName, defaultDatabase, username, pwd, "jdbc:mysql://"+ip+":"+ port+"/");
+        super(
+                userClassLoader,
+                catalogName,
+                defaultDatabase,
+                username,
+                pwd,
+                "jdbc:mysql://" + ip + ":" + port + "/");
 
         String driverVersion =
                 Preconditions.checkNotNull(getDriverVersion(), "Driver version must not be null.");
@@ -108,19 +131,19 @@ public class MySqlCdcCatalog extends AbstractJdbcCatalog {
     @Override
     public boolean tableExists(ObjectPath tablePath) throws CatalogException {
         return !extractColumnValuesBySQL(
-                baseUrl,
-                "SELECT TABLE_NAME FROM information_schema.`TABLES` "
-                        + "WHERE TABLE_SCHEMA=? and TABLE_NAME=?",
-                1,
-                null,
-                tablePath.getDatabaseName(),
-                tablePath.getObjectName())
+                        baseUrl,
+                        "SELECT TABLE_NAME FROM information_schema.`TABLES` "
+                                + "WHERE TABLE_SCHEMA=? and TABLE_NAME=?",
+                        1,
+                        null,
+                        tablePath.getDatabaseName(),
+                        tablePath.getObjectName())
                 .isEmpty();
     }
 
     private String getDatabaseVersion() {
         try (TemporaryClassLoaderContext ignored =
-                     TemporaryClassLoaderContext.of(userClassLoader)) {
+                TemporaryClassLoaderContext.of(userClassLoader)) {
             try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
                 return conn.getMetaData().getDatabaseProductVersion();
             } catch (Exception e) {
@@ -132,7 +155,7 @@ public class MySqlCdcCatalog extends AbstractJdbcCatalog {
 
     private String getDriverVersion() {
         try (TemporaryClassLoaderContext ignored =
-                     TemporaryClassLoaderContext.of(userClassLoader)) {
+                TemporaryClassLoaderContext.of(userClassLoader)) {
             try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
                 String driverVersion = conn.getMetaData().getDriverVersion();
                 Pattern regexp = Pattern.compile("\\d+?\\.\\d+?\\.\\d+");

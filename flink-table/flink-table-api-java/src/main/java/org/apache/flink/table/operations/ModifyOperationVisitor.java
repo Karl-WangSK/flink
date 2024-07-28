@@ -19,6 +19,7 @@
 package org.apache.flink.table.operations;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.table.operations.ddl.CreateTableASTableOperation;
 
 /**
  * Class that implements visitor pattern. It allows type safe logic on top of tree of {@link
@@ -39,4 +40,6 @@ public interface ModifyOperationVisitor<T> {
     T visit(CreateTableASOperation ctas);
 
     T visit(ReplaceTableAsOperation rtas);
+
+    T visit(CreateTableASTableOperation rtas);
 }

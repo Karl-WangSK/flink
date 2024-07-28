@@ -26,16 +26,18 @@ import org.apache.flink.sql.parser.ddl.SqlTableOption;
 import org.apache.flink.sql.parser.ddl.constraint.SqlTableConstraint;
 import org.apache.flink.sql.parser.dql.SqlCreateTableAsTable;
 import org.apache.flink.table.api.Schema;
+import org.apache.flink.table.api.TableColumn;
 import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.catalog.CatalogManager;
 import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.catalog.ContextResolvedTable;
+import org.apache.flink.table.catalog.GenTable;
 import org.apache.flink.table.catalog.ObjectIdentifier;
-import org.apache.flink.table.catalog.ResolvedSchema;
 import org.apache.flink.table.catalog.UnresolvedIdentifier;
 import org.apache.flink.table.operations.CreateTableASOperation;
 import org.apache.flink.table.operations.Operation;
+import org.apache.flink.table.operations.ddl.CreateTableASTableOperation;
 import org.apache.flink.table.operations.ddl.CreateTableOperation;
 import org.apache.flink.table.planner.calcite.FlinkCalciteSqlValidator;
 import org.apache.flink.table.planner.calcite.FlinkPlannerImpl;
@@ -45,13 +47,13 @@ import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -88,61 +90,51 @@ class SqlCreateTableConverter {
     }
 
     /** Convert the {@link SqlCreateTable} node. */
-    Operation convertCreateTableAsTable(FlinkPlannerImpl flinkPlanner, SqlCreateTable sqlCreateTable) {
+    Operation convertCreateTableAsTable(List<SqlNode> sqlCreateTables) {
+        HashMap<String, String> sourceTableMapping = new HashMap<>();
+        HashMap<String, String> sourceSql = new HashMap<>();
+        HashMap<String, GenTable> sourceCatalog = new HashMap<>();
+        HashMap<String, HashMap<String, String>> tableHints = new HashMap<>();
+        for (SqlNode sqlNode : sqlCreateTables) {
+            SqlCreateTableAsTable sqlCreateTable = (SqlCreateTableAsTable) sqlNode;
+            sourceTableMapping.put(
+                    sqlCreateTable.getSourceTableName().toString(),
+                    sqlCreateTable.getTableName().toString());
+            sourceSql.put(
+                    sqlCreateTable.getSourceTableName().toString(), sqlCreateTable.toString());
+            HashMap<String, String> sourceProperties = new HashMap<>();
+            sqlCreateTable
+                    .getSourcePropertyList()
+                    .getList()
+                    .forEach(
+                            p ->
+                                    sourceProperties.put(
+                                            ((SqlTableOption) p).getKeyString(),
+                                            ((SqlTableOption) p).getValueString()));
+            CatalogTable catalogTable = lookupLikeSourceTable(sqlCreateTable.getSourceTableName());
+            ArrayList<GenTable.Column> columns = new ArrayList<>();
+            for (TableColumn tableColumn : catalogTable.getSchema().getTableColumns()) {
+                columns.add(
+                        new GenTable.Column(
+                                tableColumn.getName(), tableColumn.getType().getLogicalType()));
+            }
+            GenTable table =
+                    new GenTable(
+                            catalogTable.getOptions(),
+                            columns,
+                            sqlCreateTable.getTableName().toString(),
+                            catalogTable
+                                    .getUnresolvedSchema()
+                                    .getPrimaryKey()
+                                    .get()
+                                    .getColumnNames());
 
-        HashMap<String, String> sourceProperties=new HashMap<>();
-        String optionsStr =" /*+ OPTIONS(";
-        ((SqlCreateTableAsTable) sqlCreateTable).getSourcePropertyList()
-                .getList()
-                .forEach(
-                        p ->
-                                sourceProperties.put(
-                                        ((SqlTableOption) p).getKeyString(),
-                                        ((SqlTableOption) p).getValueString()));
-
-        for (String key : sourceProperties.keySet()) {
-            optionsStr += "'" +key +"'='";
-            optionsStr += sourceProperties.get(key) +"',";
+            sourceCatalog.put(sqlCreateTable.getSourceTableName().toString(), table);
+            tableHints.put(sqlCreateTable.getSourceTableName().toString(), sourceProperties);
         }
-        optionsStr = optionsStr.substring(0, optionsStr.length()-1);
-        optionsStr += ") */";
 
-        SqlNode queryNode = flinkPlanner
-                .parser()
-                .parse("select * from " + ((SqlCreateTableAsTable) sqlCreateTable)
-                        .getSourceTableName()
-                        .toString()+ optionsStr);
-
-        PlannerQueryOperation query =
-                (PlannerQueryOperation)
-                        SqlNodeToOperationConversion.convert(
-                                        flinkPlanner, catalogManager, queryNode)
-                                .orElseThrow(
-                                        () ->
-                                                new TableException(
-                                                        "CTAS unsupported node type "
-                                                                + queryNode
-                                                                .getClass()
-                                                                .getSimpleName()));
-        CatalogTable catalogTable = createCatalogTable(sqlCreateTable);
-
-        UnresolvedIdentifier unresolvedIdentifier =
-                UnresolvedIdentifier.of(sqlCreateTable.fullTableName());
-        ObjectIdentifier identifier = catalogManager.qualifyIdentifier(unresolvedIdentifier);
-        CreateTableOperation createTableOperation =
-                new CreateTableOperation(
-                        identifier,
-                        CatalogTable.of(
-                                Schema.newBuilder()
-                                        .fromResolvedSchema(query.getResolvedSchema())
-                                        .build(),
-                                catalogTable.getComment(),
-                                catalogTable.getPartitionKeys(),
-                                catalogTable.getOptions()),
-                        sqlCreateTable.isIfNotExists(),
-                        sqlCreateTable.isTemporary());
-        return new CreateTableASOperation(
-                createTableOperation, Collections.emptyMap(), query, false);
+        return new CreateTableASTableOperation(
+                sourceTableMapping, sourceCatalog, sourceSql, tableHints);
     }
 
     /** Convert the {@link SqlCreateTableAs} node. */
@@ -240,8 +232,7 @@ class SqlCreateTableConverter {
     }
 
     private CatalogTable lookupLikeSourceTable(SqlIdentifier sqlIdentifier) {
-        UnresolvedIdentifier unresolvedIdentifier =
-                UnresolvedIdentifier.of(sqlIdentifier.names);
+        UnresolvedIdentifier unresolvedIdentifier = UnresolvedIdentifier.of(sqlIdentifier.names);
         ObjectIdentifier identifier = catalogManager.qualifyIdentifier(unresolvedIdentifier);
         ContextResolvedTable lookupResult =
                 catalogManager
@@ -252,8 +243,7 @@ class SqlCreateTableConverter {
                                                 String.format(
                                                         "Source table '%s' of the LIKE clause not found in the catalog, at %s",
                                                         identifier,
-                                                        sqlIdentifier
-                                                                .getParserPosition())));
+                                                        sqlIdentifier.getParserPosition())));
         if (!(lookupResult.getResolvedTable() instanceof CatalogTable)) {
             throw new ValidationException(
                     String.format(

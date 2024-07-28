@@ -56,6 +56,7 @@ import org.apache.flink.table.catalog.ConnectorCatalogTable;
 import org.apache.flink.table.catalog.ContextResolvedTable;
 import org.apache.flink.table.catalog.FunctionCatalog;
 import org.apache.flink.table.catalog.FunctionLanguage;
+import org.apache.flink.table.catalog.GenTable;
 import org.apache.flink.table.catalog.GenericInMemoryCatalog;
 import org.apache.flink.table.catalog.ObjectIdentifier;
 import org.apache.flink.table.catalog.QueryOperationCatalogView;
@@ -102,6 +103,7 @@ import org.apache.flink.table.operations.TableSourceQueryOperation;
 import org.apache.flink.table.operations.command.ExecutePlanOperation;
 import org.apache.flink.table.operations.ddl.AnalyzeTableOperation;
 import org.apache.flink.table.operations.ddl.CompilePlanOperation;
+import org.apache.flink.table.operations.ddl.CreateTableASTableOperation;
 import org.apache.flink.table.operations.ddl.CreateTableOperation;
 import org.apache.flink.table.operations.utils.ExecutableOperationUtils;
 import org.apache.flink.table.operations.utils.OperationTreeBuilder;
@@ -858,10 +860,41 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
                 mapOperations.add(modify);
             }
         }
-
         List<Transformation<?>> transformations = translate(mapOperations);
+        transformations.forEach(
+                transformation -> {
+                    execEnv.createView(transformation, this);
+                });
+
+        CreateTableASTableOperation createTableASTableOperation =
+                (CreateTableASTableOperation) mapOperations.get(0);
+        HashMap<String, GenTable> sourceCatalog = createTableASTableOperation.getSourceCatalog();
+        mapOperations.clear();
+        sourceCatalog.forEach(
+                (sourceTable, table) -> {
+                    String viewName = "VIEW_" + sourceTable.replaceAll("\\.", "_");
+                    String cdcInsertSql = getCDCInsertSql(table.getSinkTable(), viewName);
+                    List<Operation> op = getParser().parse(cdcInsertSql);
+                    for (Operation operation : op) {
+                        if (operation instanceof ModifyOperation) {
+                            mapOperations.add((ModifyOperation) operation);
+                        }
+                    }
+                });
+        transformations = getPlanner().translate(mapOperations);
+
         List<String> sinkIdentifierNames = extractSinkIdentifierNames(mapOperations);
         return executeInternal(transformations, sinkIdentifierNames, jobStatusHookList);
+    }
+
+    public String getCDCInsertSql(String targetName, String sourceName) {
+        StringBuilder sb = new StringBuilder("INSERT INTO ");
+        sb.append("").append(targetName).append("");
+        sb.append(" SELECT * ");
+        sb.append(" FROM `");
+        sb.append(sourceName);
+        sb.append("`");
+        return sb.toString();
     }
 
     private ModifyOperation getModifyOperation(
@@ -1179,6 +1212,9 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
                                 .getContextResolvedTable()
                                 .getIdentifier()
                                 .asSummaryString();
+                tableNames.add(fullName);
+            } else if (operation instanceof CreateTableASTableOperation) {
+                String fullName = ((CreateTableASTableOperation) operation).asSummaryString();
                 tableNames.add(fullName);
             } else {
                 throw new UnsupportedOperationException("Unsupported operation: " + operation);

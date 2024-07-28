@@ -162,6 +162,7 @@ public abstract class ExecNodeBase<T> implements ExecNode<T> {
 
     @Override
     public final Transformation<T> translateToPlan(Planner planner) {
+
         if (transformation == null) {
             transformation =
                     translateToPlanInternal(

@@ -21,6 +21,7 @@ package org.apache.flink.table.catalog;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.jdbc.catalog.JdbcCatalog;
 import org.apache.flink.table.api.CatalogNotExistException;
@@ -306,7 +307,18 @@ public final class CatalogManager implements CatalogRegistry, AutoCloseable {
                     format("Catalog %s already exists in initialized catalogs.", catalogName));
         }
 
-        Catalog catalog = initCatalog(catalogName, catalogDescriptor);
+        Configuration configuration = catalogDescriptor.getConfiguration();
+        Catalog catalog;
+        if (configuration.containsKey("port")) {
+            String db = configuration.getString("default-database", "");
+            String username = configuration.getString("username", "");
+            String password = configuration.getString("password", "");
+            String ip = configuration.getString("ip", "");
+            String port = configuration.getString("port", "");
+            catalog = new CdcCatalog(catalogName, db, username, password, ip, port);
+        } else {
+            catalog = initCatalog(catalogName, catalogDescriptor);
+        }
         catalog.open();
         catalogs.put(catalogName, catalog);
 
@@ -946,7 +958,7 @@ public final class CatalogManager implements CatalogRegistry, AutoCloseable {
             CatalogBaseTable table, ObjectIdentifier objectIdentifier, boolean ignoreIfExists) {
         execute(
                 (catalog, path) -> {
-                    if (catalog instanceof JdbcCatalog){
+                    if (catalog instanceof JdbcCatalog) {
                         return;
                     }
                     ResolvedCatalogBaseTable<?> resolvedTable = resolveCatalogBaseTable(table);

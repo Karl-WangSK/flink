@@ -336,6 +336,9 @@ class FlinkChangelogModeInferenceProgram extends FlinkOptimizeProgram[StreamOpti
         val providedTrait = new ModifyKindSetTrait(scan.intermediateTable.modifyKindSet)
         createNewNode(scan, List(), providedTrait, requiredTrait, requester)
 
+      case scan: StreamPhysicalSelfGen =>
+        scan
+
       case _ =>
         throw new UnsupportedOperationException(
           s"Unsupported visit for ${rel.getClass.getSimpleName}")
@@ -707,6 +710,8 @@ class FlinkChangelogModeInferenceProgram extends FlinkOptimizeProgram[StreamOpti
           } else {
             createNewNode(rel, Some(List()), providedTrait)
           }
+        case scan: StreamPhysicalSelfGen =>
+          Some(scan)
 
         case _ =>
           throw new UnsupportedOperationException(

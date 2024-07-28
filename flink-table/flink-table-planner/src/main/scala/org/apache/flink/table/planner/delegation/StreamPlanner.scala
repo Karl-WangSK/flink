@@ -33,11 +33,12 @@ import org.apache.flink.table.planner.plan.ExecNodeGraphInternalPlan
 import org.apache.flink.table.planner.plan.nodes.exec.ExecNodeGraph
 import org.apache.flink.table.planner.plan.nodes.exec.processor.ExecNodeGraphProcessor
 import org.apache.flink.table.planner.plan.nodes.exec.serde.JsonSerdeUtil
-import org.apache.flink.table.planner.plan.nodes.exec.stream.StreamExecNode
+import org.apache.flink.table.planner.plan.nodes.exec.stream.{StreamExecNode, StreamExecSelfGen}
 import org.apache.flink.table.planner.plan.nodes.exec.utils.ExecNodePlanDumper
 import org.apache.flink.table.planner.plan.optimize.{Optimizer, StreamCommonSubGraphBasedOptimizer}
 import org.apache.flink.table.planner.plan.utils.FlinkRelOptUtil
 import org.apache.flink.table.planner.utils.DummyStreamExecutionEnvironment
+import org.apache.flink.types.Row
 
 import _root_.scala.collection.JavaConversions._
 import org.apache.calcite.plan.{ConventionTraitDef, RelTrait, RelTraitDef}
@@ -46,7 +47,8 @@ import org.apache.calcite.sql.SqlExplainLevel
 import java.io.{File, IOException}
 import java.util
 
-import scala.collection.mutable
+import scala.collection.{mutable, GenTraversableOnce}
+import scala.collection.JavaConverters.asScalaBufferConverter
 
 class StreamPlanner(
     executor: Executor,
@@ -81,8 +83,12 @@ class StreamPlanner(
   override protected def translateToPlan(execGraph: ExecNodeGraph): util.List[Transformation[_]] = {
     beforeTranslation()
     val planner = createDummyPlanner()
-    val transformations = execGraph.getRootNodes.map {
-      case node: StreamExecNode[_] => node.translateToPlan(planner)
+
+    val transformations = execGraph.getRootNodes.flatMap {
+      case node: StreamExecSelfGen =>
+        node.translateToPlanInternal(planner).asScala.toSeq: GenTraversableOnce[Transformation[_]];
+      case node: StreamExecNode[_] =>
+        Seq(node.translateToPlan(planner)): GenTraversableOnce[Transformation[_]]
       case _ =>
         throw new TableException(
           "Cannot generate DataStream due to an invalid logical plan. " +

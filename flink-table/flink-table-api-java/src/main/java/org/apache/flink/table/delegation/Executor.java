@@ -49,6 +49,10 @@ public interface Executor {
     /** Gives read-only access to the configuration of the executor. */
     ReadableConfig getConfiguration();
 
+    default void createView(Transformation transformation, TableEnvironment tEnv) {};
+
+    /** @return */
+
     /**
      * Translates the given transformations to a {@link Pipeline}.
      *

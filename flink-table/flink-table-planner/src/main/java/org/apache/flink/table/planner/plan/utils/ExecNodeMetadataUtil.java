@@ -63,6 +63,7 @@ import org.apache.flink.table.planner.plan.nodes.exec.stream.StreamExecPythonGro
 import org.apache.flink.table.planner.plan.nodes.exec.stream.StreamExecPythonGroupWindowAggregate;
 import org.apache.flink.table.planner.plan.nodes.exec.stream.StreamExecPythonOverAggregate;
 import org.apache.flink.table.planner.plan.nodes.exec.stream.StreamExecRank;
+import org.apache.flink.table.planner.plan.nodes.exec.stream.StreamExecSelfGen;
 import org.apache.flink.table.planner.plan.nodes.exec.stream.StreamExecSink;
 import org.apache.flink.table.planner.plan.nodes.exec.stream.StreamExecSort;
 import org.apache.flink.table.planner.plan.nodes.exec.stream.StreamExecSortLimit;
@@ -143,6 +144,7 @@ public final class ExecNodeMetadataUtil {
                     add(StreamExecPythonGroupAggregate.class);
                     add(StreamExecPythonGroupWindowAggregate.class);
                     add(StreamExecPythonOverAggregate.class);
+                    add(StreamExecSelfGen.class);
                 }
             };
 

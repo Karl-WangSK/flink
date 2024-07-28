@@ -59,9 +59,10 @@ public final class UnresolvedIdentifier {
         if (path == null) {
             throw new ValidationException("Object identifier can not be null!");
         }
-        if (path.length < 1 || path.length > 3) {
-            throw new ValidationException("Object identifier must consist of 1 to 3 parts.");
-        }
+        //        if (path.length < 1 || path.length > 3) {
+        //            throw new ValidationException("Object identifier must consist of 1 to 3
+        // parts.");
+        //        }
         if (Arrays.stream(path).anyMatch(StringUtils::isNullOrWhitespaceOnly)) {
             throw new ValidationException(
                     "Parts of the object identifier are null or whitespace-only.");
@@ -71,6 +72,8 @@ public final class UnresolvedIdentifier {
             return new UnresolvedIdentifier(path[0], path[1], path[2]);
         } else if (path.length == 2) {
             return new UnresolvedIdentifier(null, path[0], path[1]);
+        } else if (path.length == 4) {
+            return new UnresolvedIdentifier(path[0], path[1], path[2] + "." + path[3]);
         } else {
             return new UnresolvedIdentifier(null, null, path[0]);
         }
