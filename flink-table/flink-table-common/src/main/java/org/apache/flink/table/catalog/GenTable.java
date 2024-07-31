@@ -21,6 +21,7 @@ package org.apache.flink.table.catalog;
 import org.apache.flink.table.types.logical.LogicalType;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -32,15 +33,18 @@ public class GenTable implements Serializable {
 
     private String sinkTable;
     private List<String> pks;
+    private List<String> addColumnStat;
 
     public GenTable(
             Map<String, String> options,
             List<GenTable.Column> columnList,
             String sinkTable,
+            ArrayList<String> addColumnStat,
             List<String> pks) {
         this.options = options;
         this.columnList = columnList;
         this.sinkTable = sinkTable;
+        this.addColumnStat = addColumnStat;
         this.pks = pks;
     }
 
@@ -58,6 +62,10 @@ public class GenTable implements Serializable {
 
     public List<String> getPks() {
         return pks;
+    }
+
+    public List<String> getAddColumnStat() {
+        return addColumnStat;
     }
 
     public static class Column implements Serializable {

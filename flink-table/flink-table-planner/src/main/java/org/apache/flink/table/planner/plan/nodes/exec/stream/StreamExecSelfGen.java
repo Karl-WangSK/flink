@@ -28,20 +28,25 @@ import org.apache.flink.cdc.connectors.mysql.source.MySqlSource;
 import org.apache.flink.cdc.connectors.mysql.source.MySqlSourceBuilder;
 import org.apache.flink.cdc.connectors.mysql.table.StartupOptions;
 import org.apache.flink.cdc.debezium.JsonDebeziumDeserializationSchema;
+import org.apache.flink.cdc.debezium.StringDebeziumDeserializationSchema;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.GenProcessFunction;
 import org.apache.flink.table.catalog.GenTable;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.functions.GenFlatMapFunction;
+import org.apache.flink.table.functions.GenMapFunction;
 import org.apache.flink.table.operations.ModifyOperation;
 import org.apache.flink.table.planner.delegation.PlannerBase;
 import org.apache.flink.table.planner.plan.nodes.exec.*;
 import org.apache.flink.table.planner.plan.nodes.exec.common.CommonExecSink;
 import org.apache.flink.table.planner.plan.nodes.exec.spec.DynamicTableSinkSpec;
+import org.apache.flink.table.planner.plan.nodes.exec.utils.CdcDebeziumDeserializationSchema;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.utils.TypeConversions;
@@ -50,18 +55,13 @@ import org.apache.flink.util.OutputTag;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonCreator;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonProperty;
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -102,7 +102,7 @@ public class StreamExecSelfGen extends CommonExecSink
     private final HashMap<String, GenTable> sourceCatalog;
     private final HashMap<String, HashMap<String, String>> tableHints;
 
-    private final List<String> dbs = new ArrayList<>();
+    private final Set<String> dbs = new HashSet<>();
 
     private final List<String> tables = new ArrayList<>();
 
@@ -171,11 +171,19 @@ public class StreamExecSelfGen extends CommonExecSink
     }
 
     public List<Transformation<Row>> translateToPlanInternal(PlannerBase planner) {
-        ObjectMapper objectMapper = new ObjectMapper();
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
         List<GenTable> values = new ArrayList<>(sourceCatalog.values());
+        ArrayList<HashMap<String, String>> hashMaps = new ArrayList<>(tableHints.values());
         Map<String, String> sourceConfig = values.get(0).getOptions();
+        HashMap<String, String> map = hashMaps.get(0);
+
+        String parallelism = map.get("parallelism.default");
+        if (StringUtils.isNotEmpty(parallelism)) {
+            env.setParallelism(Integer.parseInt(parallelism));
+        } else {
+            env.setParallelism(1);
+        }
 
         MySqlSourceBuilder<String> sourceBuilder =
                 MySqlSource.<String>builder()
@@ -185,8 +193,8 @@ public class StreamExecSelfGen extends CommonExecSink
                         .tableList(String.join(",", tables))
                         .username(sourceConfig.get("username"))
                         .password(sourceConfig.get("password"))
-                        .serverId(sourceConfig.get("server-id"))
-                        .deserializer(new JsonDebeziumDeserializationSchema())
+                        .serverId(map.get("server-id"))
+                        .deserializer(new CdcDebeziumDeserializationSchema())
                         .startupOptions(StartupOptions.initial());
 
         DataStreamSource<String> mySQLCdcSource =
@@ -200,9 +208,7 @@ public class StreamExecSelfGen extends CommonExecSink
             tagMap.put(key, new OutputTag<HashMap>(key) {});
         }
         SingleOutputStreamOperator<HashMap> mapOperator =
-                mySQLCdcSource
-                        .map(x -> objectMapper.readValue(x, HashMap.class))
-                        .returns(HashMap.class);
+                mySQLCdcSource.map(new GenMapFunction()).returns(HashMap.class);
 
         partitionByTableAndPrimarykey(mapOperator);
         SingleOutputStreamOperator<HashMap> processDs =

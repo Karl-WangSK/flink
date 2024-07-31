@@ -15,25 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.flink.table.planner.plan.nodes.exec.stream;
+package org.apache.flink.table.functions;
 
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.table.catalog.GenTable;
 import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.StringData;
-import org.apache.flink.table.types.logical.BigIntType;
-import org.apache.flink.table.types.logical.DateType;
-import org.apache.flink.table.types.logical.DecimalType;
-import org.apache.flink.table.types.logical.FloatType;
-import org.apache.flink.table.types.logical.LogicalType;
-import org.apache.flink.table.types.logical.TimestampType;
-import org.apache.flink.table.types.logical.VarBinaryType;
-import org.apache.flink.table.types.logical.VarCharType;
+import org.apache.flink.table.types.logical.*;
 import org.apache.flink.types.Row;
 import org.apache.flink.types.RowKind;
 import org.apache.flink.util.Collector;
 
-import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,11 +35,7 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 public class GenFlatMapFunction implements FlatMapFunction<HashMap, Row>, Serializable {
     protected final Logger logger = LoggerFactory.getLogger(GenFlatMapFunction.class);
@@ -58,7 +46,7 @@ public class GenFlatMapFunction implements FlatMapFunction<HashMap, Row>, Serial
     private ZoneId sinkTimeZone = ZoneId.of("UTC");
 
     protected List<ConvertType> typeConverterList =
-            Lists.newArrayList(
+            Arrays.asList(
                     this::convertVarCharType,
                     this::convertDateType,
                     this::convertVarBinaryType,
@@ -91,7 +79,6 @@ public class GenFlatMapFunction implements FlatMapFunction<HashMap, Row>, Serial
     public void flatMap(HashMap value, Collector<Row> out) throws Exception {
         try {
             switch (value.get("op").toString()) {
-                case "r":
                 case "c":
                     rowCollect(
                             columnNameList,
@@ -177,6 +164,11 @@ public class GenFlatMapFunction implements FlatMapFunction<HashMap, Row>, Serial
 
             return Optional.of(value);
         }
+        if (logicalType instanceof TinyIntType) {
+            if (value instanceof Integer){
+                return Optional.of(Byte.valueOf(value.toString()));
+            }
+        }
         return Optional.empty();
     }
 
@@ -198,11 +190,11 @@ public class GenFlatMapFunction implements FlatMapFunction<HashMap, Row>, Serial
     protected Optional<Object> convertDecimalType(Object value, LogicalType logicalType) {
         if (logicalType instanceof DecimalType) {
             final DecimalType decimalType = (DecimalType) logicalType;
-            return Optional.ofNullable(
+            return Optional.of(
                     DecimalData.fromBigDecimal(
-                            new BigDecimal((String) value),
+                            new BigDecimal(value.toString()),
                             decimalType.getPrecision(),
-                            decimalType.getScale()));
+                            decimalType.getScale()).toBigDecimal());
         }
         return Optional.empty();
     }

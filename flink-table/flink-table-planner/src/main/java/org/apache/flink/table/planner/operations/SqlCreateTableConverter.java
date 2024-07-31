@@ -118,11 +118,16 @@ class SqlCreateTableConverter {
                         new GenTable.Column(
                                 tableColumn.getName(), tableColumn.getType().getLogicalType()));
             }
+            ArrayList<String> addColumnStat = new ArrayList<>();
+            for (SqlNode node : sqlCreateTable.getTableColumnList().getList()) {
+                addColumnStat.add(node.toString());
+            }
             GenTable table =
                     new GenTable(
                             catalogTable.getOptions(),
                             columns,
                             sqlCreateTable.getTableName().toString(),
+                            addColumnStat,
                             catalogTable
                                     .getUnresolvedSchema()
                                     .getPrimaryKey()

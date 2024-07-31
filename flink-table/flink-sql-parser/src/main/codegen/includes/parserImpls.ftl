@@ -1307,6 +1307,27 @@ SqlNodeList TableProperties():
     <RPAREN>
     {  return new SqlNodeList(proList, span.end(this)); }
 }
+/** Parse a table properties. */
+SqlNodeList AddColumns():
+{
+    SqlNode item;
+    final List<SqlNode> list = new ArrayList<SqlNode>();
+    final Span span;
+}
+{
+    <LPAREN> { span = span(); }
+    [
+         AddSelectItem(list)
+         (
+              <COMMA> AddSelectItem(list)
+         )*
+    ]
+    <RPAREN>
+     {  return new SqlNodeList(list, span.end(this)); }
+}
+
+
+
 
 SqlCreate SqlCreateTable(Span s, boolean replace, boolean isTemporary) :
 {
@@ -1324,6 +1345,7 @@ SqlCreate SqlCreateTable(Span s, boolean replace, boolean isTemporary) :
     SqlNodeList propertyList = SqlNodeList.EMPTY;
     SqlNodeList sourcePropertyList = SqlNodeList.EMPTY;
     SqlNodeList partitionColumns = SqlNodeList.EMPTY;
+    SqlNodeList addColumnsList = SqlNodeList.EMPTY;
     SqlParserPos pos = startPos;
 }
 {
@@ -1383,6 +1405,10 @@ SqlCreate SqlCreateTable(Span s, boolean replace, boolean isTemporary) :
                 <OPTIONS>
                 sourcePropertyList = TableProperties()
             ]
+            [
+                 <ADD> <COLUMNS>
+                 addColumnsList = AddColumns()
+            ]
             {
             return new SqlCreateTableAsTable(startPos.plus(getPos()),
             tableName,
@@ -1394,6 +1420,7 @@ SqlCreate SqlCreateTable(Span s, boolean replace, boolean isTemporary) :
             comment,
             sourceTableName,
             sourcePropertyList,
+            addColumnsList,
             isTemporary,
             ifNotExists);
             }

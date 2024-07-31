@@ -861,36 +861,44 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
             }
         }
         List<Transformation<?>> transformations = translate(mapOperations);
-        transformations.forEach(
-                transformation -> {
-                    execEnv.createView(transformation, this);
-                });
+        if (mapOperations.get(0) instanceof CreateTableASTableOperation) {
+            transformations.forEach(
+                    transformation -> {
+                        execEnv.createView(transformation, this);
+                    });
 
-        CreateTableASTableOperation createTableASTableOperation =
-                (CreateTableASTableOperation) mapOperations.get(0);
-        HashMap<String, GenTable> sourceCatalog = createTableASTableOperation.getSourceCatalog();
-        mapOperations.clear();
-        sourceCatalog.forEach(
-                (sourceTable, table) -> {
-                    String viewName = "VIEW_" + sourceTable.replaceAll("\\.", "_");
-                    String cdcInsertSql = getCDCInsertSql(table.getSinkTable(), viewName);
-                    List<Operation> op = getParser().parse(cdcInsertSql);
-                    for (Operation operation : op) {
-                        if (operation instanceof ModifyOperation) {
-                            mapOperations.add((ModifyOperation) operation);
+            CreateTableASTableOperation createTableASTableOperation =
+                    (CreateTableASTableOperation) mapOperations.get(0);
+            HashMap<String, GenTable> sourceCatalog =
+                    createTableASTableOperation.getSourceCatalog();
+            mapOperations.clear();
+            sourceCatalog.forEach(
+                    (sourceTable, table) -> {
+                        String viewName = "VIEW_" + sourceTable.replaceAll("\\.", "_");
+                        String cdcInsertSql = getCDCInsertSql(table, viewName);
+                        List<Operation> op = getParser().parse(cdcInsertSql);
+                        for (Operation operation : op) {
+                            if (operation instanceof ModifyOperation) {
+                                mapOperations.add((ModifyOperation) operation);
+                            }
                         }
-                    }
-                });
-        transformations = getPlanner().translate(mapOperations);
+                    });
+            transformations = getPlanner().translate(mapOperations);
+        }
 
         List<String> sinkIdentifierNames = extractSinkIdentifierNames(mapOperations);
         return executeInternal(transformations, sinkIdentifierNames, jobStatusHookList);
     }
 
-    public String getCDCInsertSql(String targetName, String sourceName) {
+    public String getCDCInsertSql(GenTable genTable, String sourceName) {
         StringBuilder sb = new StringBuilder("INSERT INTO ");
-        sb.append("").append(targetName).append("");
+        sb.append("").append(genTable.getSinkTable()).append("");
         sb.append(" SELECT * ");
+        if (genTable.getAddColumnStat().size()>0){
+            for (String statement : genTable.getAddColumnStat()) {
+                sb.append(", " + statement);
+            }
+        }
         sb.append(" FROM `");
         sb.append(sourceName);
         sb.append("`");

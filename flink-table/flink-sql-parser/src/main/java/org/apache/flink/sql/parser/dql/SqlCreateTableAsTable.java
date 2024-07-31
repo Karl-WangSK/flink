@@ -75,6 +75,7 @@ public class SqlCreateTableAsTable extends SqlCreateTable {
 
     private final SqlIdentifier sourceTableName;
     private final SqlNodeList sourcePropertyList;
+    private final SqlNodeList addColumnList;
 
     public SqlCreateTableAsTable(
             SqlParserPos pos,
@@ -87,6 +88,7 @@ public class SqlCreateTableAsTable extends SqlCreateTable {
             @Nullable SqlCharStringLiteral comment,
             SqlIdentifier sourceTableName,
             SqlNodeList sourcePropertyList,
+            SqlNodeList addColumnList,
             boolean isTemporary,
             boolean ifNotExists) {
         super(
@@ -103,6 +105,7 @@ public class SqlCreateTableAsTable extends SqlCreateTable {
                 ifNotExists);
         this.sourceTableName = sourceTableName;
         this.sourcePropertyList = sourcePropertyList;
+        this.addColumnList = addColumnList;
     }
 
     @Override
@@ -116,6 +119,10 @@ public class SqlCreateTableAsTable extends SqlCreateTable {
 
     public SqlNodeList getSourcePropertyList() {
         return sourcePropertyList;
+    }
+
+    public SqlNodeList getTableColumnList() {
+        return addColumnList;
     }
 
     @Override
@@ -136,6 +143,18 @@ public class SqlCreateTableAsTable extends SqlCreateTable {
             writer.keyword("OPTIONS");
             SqlWriter.Frame withFrame = writer.startList("(", ")");
             for (SqlNode property : sourcePropertyList) {
+                SqlUnparseUtils.printIndent(writer);
+                property.unparse(writer, leftPrec, rightPrec);
+            }
+            writer.newlineAndIndent();
+            writer.endList(withFrame);
+        }
+
+        if (this.addColumnList.size() > 0) {
+            writer.keyword("ADD");
+            writer.keyword("COLUMNS");
+            SqlWriter.Frame withFrame = writer.startList("(", ")");
+            for (SqlNode property : addColumnList) {
                 SqlUnparseUtils.printIndent(writer);
                 property.unparse(writer, leftPrec, rightPrec);
             }
