@@ -755,10 +755,12 @@ public class SqlNodeToOperationConversion {
         ContextResolvedTable contextResolvedTable = catalogManager.getTableOrError(identifier);
         String url = contextResolvedTable.getResolvedTable().getOptions().get("url");
         if (url.contains("jdbc:postgresql://")) {
-            contextResolvedTable
+            Map<String, String> options = contextResolvedTable
                     .getResolvedTable()
-                    .getOptions()
-                    .put("url", url + "?reWriteBatchedInserts=true");
+                    .getOptions();
+            options.put("url", url + "?reWriteBatchedInserts=true");
+            options.put("sink.buffer-flush.max-rows", "10000");
+            options.put("sink.buffer-flush.interval", "1s");
         }
 
         PlannerQueryOperation query =
