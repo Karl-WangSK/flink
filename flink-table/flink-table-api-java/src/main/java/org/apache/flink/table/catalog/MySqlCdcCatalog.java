@@ -19,7 +19,6 @@ package org.apache.flink.table.catalog;
 
 import org.apache.flink.connector.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.flink.connector.jdbc.databases.mysql.catalog.MySqlCatalog;
-import org.apache.flink.connector.jdbc.databases.mysql.catalog.MySqlTypeMapper;
 import org.apache.flink.connector.jdbc.dialect.JdbcDialectTypeMapper;
 import org.apache.flink.table.api.Schema;
 import org.apache.flink.table.catalog.exceptions.CatalogException;
@@ -61,6 +60,9 @@ public class MySqlCdcCatalog extends AbstractJdbcCatalog {
     private final JdbcDialectTypeMapper dialectTypeMapper;
 
     private final String hostname;
+    private final String startupMode;
+    private final String offsetFile;
+    private final String offsetPos;
     private final String port;
 
     private static final Set<String> builtinDatabases =
@@ -80,7 +82,10 @@ public class MySqlCdcCatalog extends AbstractJdbcCatalog {
             String username,
             String pwd,
             String ip,
-            String port) {
+            String port,
+            String startupMode,
+            String offsetFile,
+            String offsetPos) {
         super(
                 userClassLoader,
                 catalogName,
@@ -97,6 +102,9 @@ public class MySqlCdcCatalog extends AbstractJdbcCatalog {
         LOG.info("Driver version: {}, database version: {}", driverVersion, databaseVersion);
         this.hostname = ip;
         this.port = port;
+        this.startupMode = startupMode;
+        this.offsetFile = offsetFile;
+        this.offsetPos = offsetPos;
         this.dialectTypeMapper = new MySqlTypeMapper(databaseVersion, driverVersion);
     }
 
@@ -217,6 +225,9 @@ public class MySqlCdcCatalog extends AbstractJdbcCatalog {
             props.put(PASSWORD.key(), pwd);
             props.put("hostname", hostname);
             props.put("port", port);
+            props.put("startup.mode", startupMode);
+            props.put("offset.file", offsetFile);
+            props.put("offset.pos", offsetPos);
             props.put("database-name", getSchemaName(tablePath));
             props.put(TABLE_NAME.key(), getSchemaTableName(tablePath));
             return CatalogTable.of(tableSchema, null, Lists.newArrayList(), props);

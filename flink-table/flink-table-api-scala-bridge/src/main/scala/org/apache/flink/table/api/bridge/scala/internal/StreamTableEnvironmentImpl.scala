@@ -38,11 +38,10 @@ import org.apache.flink.table.sources.{TableSource, TableSourceValidation}
 import org.apache.flink.table.types.AbstractDataType
 import org.apache.flink.table.types.utils.TypeConversions
 import org.apache.flink.types.Row
-import org.apache.flink.util.{FlinkUserCodeClassLoaders, InstantiationUtil, MutableURLClassLoader, Preconditions}
+import org.apache.flink.util.{FlinkUserCodeClassLoaders, MutableURLClassLoader, Preconditions}
 
 import java.net.URL
 import java.util.Optional
-
 import scala.collection.JavaConverters._
 
 /**

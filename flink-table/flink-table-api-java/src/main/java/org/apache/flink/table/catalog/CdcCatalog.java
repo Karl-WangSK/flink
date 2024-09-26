@@ -49,7 +49,10 @@ public class CdcCatalog extends AbstractJdbcCatalog {
             String username,
             String pwd,
             String ip,
-            String port) {
+            String port,
+            String startupMode,
+            String offsetFile,
+            String offsetPos) {
         this(
                 Thread.currentThread().getContextClassLoader(),
                 catalogName,
@@ -58,6 +61,9 @@ public class CdcCatalog extends AbstractJdbcCatalog {
                 pwd,
                 ip,
                 port,
+                startupMode,
+                offsetFile,
+                offsetPos,
                 null);
     }
 
@@ -80,6 +86,9 @@ public class CdcCatalog extends AbstractJdbcCatalog {
             String pwd,
             String ip,
             String port,
+            String startupMode,
+            String offsetFile,
+            String offsetPos,
             String compatibleMode) {
         super(
                 userClassLoader,
@@ -92,7 +101,7 @@ public class CdcCatalog extends AbstractJdbcCatalog {
         if (dialect instanceof MySqlDialect) {
             internal =
                     new MySqlCdcCatalog(
-                            userClassLoader, catalogName, defaultDatabase, username, pwd, ip, port);
+                            userClassLoader, catalogName, defaultDatabase, username, pwd, ip, port, startupMode, offsetFile, offsetPos);
         } else {
             throw new RuntimeException("找不到catalog");
         }

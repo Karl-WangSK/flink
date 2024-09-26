@@ -34,6 +34,8 @@ import javax.xml.bind.DatatypeConverter;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.*;
 
@@ -53,6 +55,7 @@ public class GenFlatMapFunction implements FlatMapFunction<HashMap, Row>, Serial
                     this::convertBigIntType,
                     this::convertFloatType,
                     this::convertDecimalType,
+                    this::convertTimeType,
                     this::convertTimestampType);
 
     @FunctionalInterface
@@ -169,6 +172,11 @@ public class GenFlatMapFunction implements FlatMapFunction<HashMap, Row>, Serial
                 return Optional.of(Byte.valueOf(value.toString()));
             }
         }
+        if (logicalType instanceof SmallIntType) {
+            if (value instanceof Integer){
+                return Optional.of(Short.valueOf(value.toString()));
+            }
+        }
         return Optional.empty();
     }
 
@@ -229,7 +237,7 @@ public class GenFlatMapFunction implements FlatMapFunction<HashMap, Row>, Serial
                                     .toLocalDateTime());
                 }
                 return Optional.of(
-                        Instant.ofEpochSecond(((long) value))
+                        Instant.ofEpochSecond(((long) value)/1000)
                                 .atZone(sinkTimeZone)
                                 .toLocalDateTime());
             }
@@ -240,11 +248,15 @@ public class GenFlatMapFunction implements FlatMapFunction<HashMap, Row>, Serial
     protected Optional<Object> convertDateType(Object target, LogicalType logicalType) {
         if (logicalType instanceof DateType) {
             return Optional.of(
-                    StringData.fromString(
-                            Instant.ofEpochMilli((long) target)
-                                    .atZone(ZoneId.systemDefault())
-                                    .toLocalDate()
-                                    .toString()));
+                    LocalDate.ofEpochDay((int)target));
+        }
+        return Optional.empty();
+    }
+
+    protected Optional<Object> convertTimeType(Object target, LogicalType logicalType) {
+        if (logicalType instanceof TimeType) {
+            return Optional.of(
+                    LocalTime.ofSecondOfDay(((long)target)/ 1_000_000));
         }
         return Optional.empty();
     }

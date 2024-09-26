@@ -26,6 +26,7 @@ import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.cdc.connectors.mysql.source.MySqlSource;
 import org.apache.flink.cdc.connectors.mysql.source.MySqlSourceBuilder;
+import org.apache.flink.cdc.connectors.mysql.table.StartupMode;
 import org.apache.flink.cdc.connectors.mysql.table.StartupOptions;
 import org.apache.flink.cdc.debezium.CdcDebeziumDeserializationSchema;
 import org.apache.flink.configuration.ReadableConfig;
@@ -70,18 +71,18 @@ import java.util.stream.Collectors;
         name = "stream-exec-selfgen",
         version = 1,
         consumedOptions = {
-            "table.exec.sink.not-null-enforcer",
-            "table.exec.sink.type-length-enforcer",
-            "table.exec.sink.upsert-materialize",
-            "table.exec.sink.keyed-shuffle",
-            "table.exec.sink.rowtime-inserter"
+                "table.exec.sink.not-null-enforcer",
+                "table.exec.sink.type-length-enforcer",
+                "table.exec.sink.upsert-materialize",
+                "table.exec.sink.keyed-shuffle",
+                "table.exec.sink.rowtime-inserter"
         },
         producedTransformations = {
-            CommonExecSink.CONSTRAINT_VALIDATOR_TRANSFORMATION,
-            CommonExecSink.PARTITIONER_TRANSFORMATION,
-            CommonExecSink.UPSERT_MATERIALIZE_TRANSFORMATION,
-            CommonExecSink.TIMESTAMP_INSERTER_TRANSFORMATION,
-            CommonExecSink.SINK_TRANSFORMATION
+                CommonExecSink.CONSTRAINT_VALIDATOR_TRANSFORMATION,
+                CommonExecSink.PARTITIONER_TRANSFORMATION,
+                CommonExecSink.UPSERT_MATERIALIZE_TRANSFORMATION,
+                CommonExecSink.TIMESTAMP_INSERTER_TRANSFORMATION,
+                CommonExecSink.SINK_TRANSFORMATION
         },
         minPlanVersion = FlinkVersion.v1_15,
         minStateVersion = FlinkVersion.v1_15)
@@ -177,6 +178,18 @@ public class StreamExecSelfGen extends CommonExecSink
         HashMap<String, String> map = hashMaps.get(0);
 
         String parallelism = map.get("parallelism.default");
+        String startupMode = sourceConfig.get("startup.mode");
+        StartupOptions startupOptions;
+        if (startupMode.equals("LATEST_OFFSET")) {
+            startupOptions = StartupOptions.latest();
+        } else if (startupMode.equals("SPECIFIC_OFFSET")) {
+            startupOptions = StartupOptions.specificOffset(sourceConfig.get("offset.file"),
+                    Long.parseLong(sourceConfig.get("offset.pos")));
+        } else if (startupMode.equals("EARLIEST_OFFSET")) {
+            startupOptions = StartupOptions.earliest();
+        } else {
+            startupOptions = StartupOptions.initial();
+        }
         if (StringUtils.isNotEmpty(parallelism)) {
             env.setParallelism(Integer.parseInt(parallelism));
         } else {
@@ -193,7 +206,7 @@ public class StreamExecSelfGen extends CommonExecSink
                         .password(sourceConfig.get("password"))
                         .serverId(map.get("server-id"))
                         .deserializer(new CdcDebeziumDeserializationSchema())
-                        .startupOptions(StartupOptions.initial());
+                        .startupOptions(startupOptions);
 
         DataStreamSource<String> mySQLCdcSource =
                 env.fromSource(
@@ -203,7 +216,8 @@ public class StreamExecSelfGen extends CommonExecSink
 
         HashMap<String, OutputTag<HashMap>> tagMap = new HashMap<>();
         for (String key : sourceTableMapping.keySet()) {
-            tagMap.put(key, new OutputTag<HashMap>(key) {});
+            tagMap.put(key, new OutputTag<HashMap>(key) {
+            });
         }
         SingleOutputStreamOperator<HashMap> mapOperator =
                 mySQLCdcSource.map(new GenMapFunction()).returns(HashMap.class);
@@ -227,10 +241,10 @@ public class StreamExecSelfGen extends CommonExecSink
                                             sourceCatalog.get(tableName).getColumnList());
                                     DataStream<Row> rowDataDataStream =
                                             buildRow(
-                                                            filterOperator,
-                                                            columnNameList,
-                                                            columnTypeList,
-                                                            tableName)
+                                                    filterOperator,
+                                                    columnNameList,
+                                                    columnTypeList,
+                                                    tableName)
                                                     .forward();
                                     rowDataDataStream.getTransformation().setName(tableName);
                                     logger.info("Build {} flatMap successful...", tableName);

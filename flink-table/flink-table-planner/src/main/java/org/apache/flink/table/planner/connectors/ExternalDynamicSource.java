@@ -136,7 +136,7 @@ final class ExternalDynamicSource<E>
                                 !isTopLevelRecord,
                                 produceRowtimeMetadata,
                                 propagateWatermark,
-                                changelogMode.containsOnly(RowKind.INSERT)),
+                                false),
                         null, // will be filled by the framework
                         externalTransformation.getParallelism(),
                         false);

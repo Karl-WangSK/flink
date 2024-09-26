@@ -315,7 +315,10 @@ public final class CatalogManager implements CatalogRegistry, AutoCloseable {
             String password = configuration.getString("password", "");
             String ip = configuration.getString("ip", "");
             String port = configuration.getString("port", "");
-            catalog = new CdcCatalog(catalogName, db, username, password, ip, port);
+            String startupMode = configuration.getString("startup.mode", "");
+            String offsetFile = configuration.getString("offset.file", "");
+            String offsetPos = configuration.getString("offset.pos", "0");
+            catalog = new CdcCatalog(catalogName, db, username, password, ip, port, startupMode, offsetFile, offsetPos);
         } else {
             catalog = initCatalog(catalogName, catalogDescriptor);
         }

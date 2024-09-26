@@ -55,14 +55,19 @@ public class Test {
                         + "  'base-url' = 'jdbc:postgresql://xx:80/'\n"
                         + ")");
 
-        tableEnv.executeSql(
+//        tableEnv.executeSql(
+//                "EXECUTE STATEMENT SET  BEGIN "
+//                        + "CREATE TABLE holo.rsodw_dev.test.flink_sink_01 AS TABLE  mysql.test.cdc_01 "
+//                        + "OPTIONS('server-id' = '8101-8104','parallelism.default' = '1')"
+//                        + "ADD COLUMNS (cast(now()  as varchar) as tt) ;"
+//                        + "CREATE TABLE holo.rsodw_dev.test.flink_sink_02 AS TABLE  mysql.test.cdc_02"
+//                        + " OPTIONS('server-id' = '8101-8104', 'parallelism.default' = '1');"
+//                        + "END;");
+        tableEnv.executeSql("" +
                 "EXECUTE STATEMENT SET  BEGIN "
-                        + "CREATE TABLE holo.rsodw_dev.test.flink_sink_01 AS TABLE  mysql.test.cdc_01 "
-                        + "OPTIONS('server-id' = '8101-8104','parallelism.default' = '1')"
-                        + "ADD COLUMNS (cast(now()  as varchar) as tt) ;"
-                        + "CREATE TABLE holo.rsodw_dev.test.flink_sink_02 AS TABLE  mysql.test.cdc_02"
-                        + " OPTIONS('server-id' = '8101-8104', 'parallelism.default' = '1');"
-                        + "END;");
+                + "CREATE TABLE holo.rsodw_dev.test.flink_sink_01 AS TABLE  mysql.test.cdc_1 OPTIONS('server-id' = '8201-8210','parallelism.default' = '2')  \n"
+                + "  ADD COLUMNS (cast(now()  as varchar) as t); "+
+        "END;");
         //        tableEnv.executeSql(
         //            "EXECUTE STATEMENT SET  BEGIN "
         //                + "insert into holo.rsodw_dev.test.flink_sink_01  select * from

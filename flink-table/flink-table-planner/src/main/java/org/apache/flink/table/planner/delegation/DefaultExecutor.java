@@ -26,6 +26,7 @@ import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.connector.jdbc.internal.GenericJdbcSinkFunction;
 import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.core.execution.JobStatusHook;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -70,7 +71,7 @@ public class DefaultExecutor implements Executor {
         DataStream<Row> newStream = new DataStream<>(executionEnvironment, transformation);
         String viewName = "VIEW_" + transformation.getName().replaceAll("\\.", "_");
 
-        env.createTemporaryView(viewName, env.fromChangelogStream(newStream));
+        env.createTemporaryView(viewName, env.fromDataStream(newStream));
     }
 
     @Override
